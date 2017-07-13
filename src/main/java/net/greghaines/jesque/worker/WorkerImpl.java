@@ -507,12 +507,14 @@ public class WorkerImpl implements Worker {
      */
     protected String pop(final String curQueue) {
         final String key = key(QUEUE, curQueue);
+        String inflightKey = key(INFLIGHT, this.name, curQueue);
+
         switch (nextQueueStrategy) {
         case DRAIN_WHILE_MESSAGES_EXISTS:
-            return (String) this.jedis.evalsha(this.popScriptHash.get(), 3, key, key(INFLIGHT, this.name, curQueue),
+            return (String) this.jedis.evalsha(this.popScriptHash.get(), 3, key, inflightKey,
                     JesqueUtils.createRecurringHashKey(key), Long.toString(System.currentTimeMillis()));
         case RESET_TO_HIGHEST_PRIORITY:
-            return (String) this.jedis.evalsha(this.multiPriorityQueuesScriptHash.get(), 1, curQueue);
+            return (String) this.jedis.evalsha(this.multiPriorityQueuesScriptHash.get(), 2, curQueue, inflightKey , Long.toString(System.currentTimeMillis()));
         default:
             throw new RuntimeException("Unimplemented 'nextQueueStrategy'");
         }
@@ -744,17 +746,21 @@ public class WorkerImpl implements Worker {
      */
     protected String createName() {
         final StringBuilder buf = new StringBuilder(128);
+        buf.append(getHostName()).append(COLON)
+                .append(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]) // PID
+                .append('-').append(this.workerId).append(COLON).append(JAVA_DYNAMIC_QUEUES);
+        for (final String queueName : this.queueNames) {
+            buf.append(',').append(queueName);
+        }
+        return buf.toString();
+    }
+
+    private String getHostName(){
         try {
-            buf.append(InetAddress.getLocalHost().getHostName()).append(COLON)
-                    .append(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]) // PID
-                    .append('-').append(this.workerId).append(COLON).append(JAVA_DYNAMIC_QUEUES);
-            for (final String queueName : this.queueNames) {
-                buf.append(',').append(queueName);
-            }
+            return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException uhe) {
             throw new RuntimeException(uhe);
         }
-        return buf.toString();
     }
 
     /**
