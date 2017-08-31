@@ -15,7 +15,7 @@ local log = "resque:watchdog:log"
 local lightKeeperKey = "resque:light-keeper"
 local isAlivePrefix = "resque:isAlive:"
 local isAliveKey = isAlivePrefix..serverName
-local inflightQueuePattern = "inflight%-queue"
+local recoveryQueuePattern = "recovery%-queue"
 local currentTime
 
 local function setCurrentTime()
@@ -33,17 +33,30 @@ local function errorMessage(message)
     redis.call('RPUSH',log,"ERROR - "..message)
 end
 
+local function renameInFlightKeys(server)
+     local inFlightJobMark = "*inflight:"..server.."*"
+     local inFlightKeys = redis.call('KEYS',inFlightJobMark)
+
+     -- rename inflight keys to recovery keys
+     for _,key in ipairs(inFlightKeys) do
+        debugMessage("Outdated inFlight key "..key.." was found on server "..server)
+        local payload = redis.call('LPOP', key)
+        local recoveryKey = string.gsub(key,"inflight","recovery")
+        redis.call('LPUSH',recoveryKey,payload)
+     end
+end
 
 local function requeueJobs(server)
-     debugMessage("Requeue jobs was called on server ".. server)
+     debugMessage("Re-queue jobs was called on server ".. server)
 
-     local inflightJobMark = "*inflight:"..server.."*"
-     local inFlightKeys = redis.call('KEYS',inflightJobMark)
+     renameInFlightKeys(server)
 
-     for _,key in ipairs(inFlightKeys) do
-        debugMessage("Outdated inflight key "..key.." was found on server "..server)
+     local recoveryJobMark = "*recovery:"..server.."*"
+     local recoveryKeys = redis.call('KEYS',recoveryJobMark)
 
-        local patternBegin, patternEnd = string.find(key,inflightQueuePattern)
+
+     for _,key in ipairs(recoveryKeys) do
+        local patternBegin, patternEnd = string.find(key,recoveryQueuePattern)
         local queueWithType = key:sub(patternEnd+2)
         local job = redis.call('LPOP',key);
 
