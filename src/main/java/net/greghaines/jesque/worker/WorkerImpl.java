@@ -603,6 +603,8 @@ public class WorkerImpl implements Worker {
     protected void process(final Job job ,final String curQueue) {
         boolean resubmit = false;
         long resubmitDelay = 0;
+        String resubmitQueueName = null;
+
         try {
             this.processingJob.set(true);
             if (threadNameChangingEnabled) {
@@ -616,11 +618,12 @@ public class WorkerImpl implements Worker {
         } catch (RetryJobException ex) {
             resubmit = true;
             resubmitDelay = ex.getDelay();
+            resubmitQueueName = ex.getQueueName();
         } catch (Throwable thrwbl) {
             failure(thrwbl, job, curQueue);
         } finally {
             if(resubmit){
-                resubmitInFlight(curQueue,resubmitDelay);
+                resubmitInFlight(curQueue, resubmitDelay, resubmitQueueName);
             } else {
                 removeInFlight(curQueue);
             }
@@ -629,8 +632,12 @@ public class WorkerImpl implements Worker {
         }
     }
 
-    private void resubmitInFlight(final String curQueue, long delay) {
-        this.jedis.evalsha(this.resubmitInFlightHash.get(), 1, key(INFLIGHT, this.name, curQueue),String.valueOf(System.currentTimeMillis() + delay));
+    private void resubmitInFlight(final String curQueue, long delay, String resubmitQueueName) {
+        final String resubmitQueueKey = JesqueUtils.createKey(namespace, QUEUE, resubmitQueueName);
+        final String queuesKey = JesqueUtils.createKey(namespace, QUEUES);
+        final String inflightKey = key(INFLIGHT, this.name, curQueue);
+
+        this.jedis.evalsha(this.resubmitInFlightHash.get(), 3, inflightKey, resubmitQueueKey, queuesKey, String.valueOf(System.currentTimeMillis()), String.valueOf(delay), resubmitQueueName);
     }
 
     private void removeInFlight(final String curQueue) {
