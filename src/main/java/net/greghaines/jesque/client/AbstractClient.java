@@ -31,6 +31,8 @@ import redis.clients.jedis.exceptions.JedisException;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Common logic for Client implementations.
@@ -39,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Animesh Kumar
  */
 public abstract class AbstractClient implements Client {
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractClient.class);
 
     private static final String ENQUEUE = "enqueue";
     private static final String PRIORITY_ENQUEUE = "priorityEnqueue";
@@ -346,18 +349,28 @@ public abstract class AbstractClient implements Client {
     }
 
     private static void doEnqueue(final Jedis jedis, final String enqueueType, final String queue, final String jobJson, final String queueKey, final String queuesKey, final boolean jobUniquenessValidation, final long future) {
-        final String pushStatus;
-        final String uniquenessValidation = String.valueOf(jobUniquenessValidation);
+        String pushStatus;
+        LOG.info("Enqueuing job" + jobJson + " to the queue "+ queue + " enqueueType "+enqueueType+" with delay " + future);
+        try {
+            final String uniquenessValidation = String.valueOf(jobUniquenessValidation);
 
-        if(future==0) {
-            pushStatus = (String) jedis.evalsha(pushScriptHash.get(), 2, queuesKey, queueKey, enqueueType, getCurrTime(), queue, jobJson, uniquenessValidation);
-        } else{
-            pushStatus = (String) jedis.evalsha(pushScriptHash.get(), 2, queuesKey, queueKey, enqueueType, getCurrTime(), queue, jobJson, uniquenessValidation, String.valueOf(future));
+            if(future==0) {
+                pushStatus = (String) jedis.evalsha(pushScriptHash.get(), 2, queuesKey, queueKey, enqueueType, getCurrTime(), queue, jobJson, uniquenessValidation);
+            } else{
+                pushStatus = (String) jedis.evalsha(pushScriptHash.get(), 2, queuesKey, queueKey, enqueueType, getCurrTime(), queue, jobJson, uniquenessValidation, String.valueOf(future));
+            }
+        } catch (Exception e) {
+            LOG.error("Enqueuing job " + jobJson + " to the queue "+ queue + " has failed",e);
+            throw e;
         }
 
         if(DUPLICATED.equals(pushStatus)){
-            throw new DuplicateJobException("Duplicated job " + jobJson + " has been found");
+            final String duplicatedJobMessage = "Duplicated job " + jobJson + " has been found";
+            LOG.warn(duplicatedJobMessage);
+            throw new DuplicateJobException(duplicatedJobMessage);
         }
+
+        LOG.info("Enqueuing job" + jobJson + " to the queue "+ queue + " has finished successfully");
     }
 
     protected abstract void doDelayedEnqueue(String queue, String msg, long future) throws Exception;
