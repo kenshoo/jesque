@@ -349,7 +349,7 @@ public abstract class AbstractClient implements Client {
     }
 
     private static void doEnqueue(final Jedis jedis, final String enqueueType, final String queue, final String jobJson, final String queueKey, final String queuesKey, final boolean jobUniquenessValidation, final long future) {
-        String pushStatus;
+        final String pushStatus;
         LOG.info("Starting " + enqueueType + " job" + jobJson + " to the queue " + queue + " with delay " + future);
         try {
             final String uniquenessValidation = String.valueOf(jobUniquenessValidation);
