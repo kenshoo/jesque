@@ -350,7 +350,7 @@ public abstract class AbstractClient implements Client {
 
     private static void doEnqueue(final Jedis jedis, final String enqueueType, final String queue, final String jobJson, final String queueKey, final String queuesKey, final boolean jobUniquenessValidation, final long future) {
         String pushStatus;
-        LOG.info("Enqueuing job" + jobJson + " to the queue "+ queue + " enqueueType "+enqueueType+" with delay " + future);
+        LOG.info("Starting " + enqueueType + " job" + jobJson + " to the queue " + queue + " with delay " + future);
         try {
             final String uniquenessValidation = String.valueOf(jobUniquenessValidation);
 
@@ -360,7 +360,7 @@ public abstract class AbstractClient implements Client {
                 pushStatus = (String) jedis.evalsha(pushScriptHash.get(), 2, queuesKey, queueKey, enqueueType, getCurrTime(), queue, jobJson, uniquenessValidation, String.valueOf(future));
             }
         } catch (Exception e) {
-            LOG.error("Enqueuing job " + jobJson + " to the queue "+ queue + " has failed",e);
+            LOG.error(enqueueType + " job " + jobJson + " to the queue "+ queue + " has failed",e);
             throw e;
         }
 
@@ -370,7 +370,7 @@ public abstract class AbstractClient implements Client {
             throw new DuplicateJobException(duplicatedJobMessage);
         }
 
-        LOG.info("Enqueuing job" + jobJson + " to the queue "+ queue + " has finished successfully");
+        LOG.info(enqueueType + " job" + jobJson + " to the queue "+ queue + " has finished successfully");
     }
 
     protected abstract void doDelayedEnqueue(String queue, String msg, long future) throws Exception;
