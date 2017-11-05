@@ -350,7 +350,7 @@ public abstract class AbstractClient implements Client {
 
     private static void doEnqueue(final Jedis jedis, final String enqueueType, final String queue, final String jobJson, final String queueKey, final String queuesKey, final boolean jobUniquenessValidation, final long future) {
         final String pushStatus;
-        LOG.info("Starting " + enqueueType + " job" + jobJson + " to the queue " + queue + " with delay " + future);
+        LOG.info("Jesque starting {} job {} to the queue {} with delay {} ", enqueueType, jobJson, queue, future);
         try {
             final String uniquenessValidation = String.valueOf(jobUniquenessValidation);
 
@@ -360,17 +360,17 @@ public abstract class AbstractClient implements Client {
                 pushStatus = (String) jedis.evalsha(pushScriptHash.get(), 2, queuesKey, queueKey, enqueueType, getCurrTime(), queue, jobJson, uniquenessValidation, String.valueOf(future));
             }
         } catch (Exception e) {
-            LOG.error(enqueueType + " job " + jobJson + " to the queue "+ queue + " has failed",e);
+            LOG.error("Jesque {} job {} to the queue {} has failed", enqueueType, jobJson, queue, e);
             throw e;
         }
 
         if(DUPLICATED.equals(pushStatus)){
-            final String duplicatedJobMessage = "Duplicated job " + jobJson + " has been found";
-            LOG.warn(duplicatedJobMessage);
+            final String duplicatedJobMessage = String.format("Jesque duplicated job %s has been found", jobJson);
+            LOG.warn(duplicatedJobMessage,jobJson);
             throw new DuplicateJobException(duplicatedJobMessage);
         }
 
-        LOG.info(enqueueType + " job" + jobJson + " to the queue "+ queue + " has finished successfully");
+        LOG.info("Jesque {} job {} to the queue {} has finished successfully", enqueueType, jobJson, queue);
     }
 
     protected abstract void doDelayedEnqueue(String queue, String msg, long future) throws Exception;
