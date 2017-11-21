@@ -20,6 +20,7 @@ import static net.greghaines.jesque.utils.ResqueConstants.QUEUES;
 
 import net.greghaines.jesque.Config;
 import net.greghaines.jesque.DuplicateJobException;
+import net.greghaines.jesque.JobExecutionTimeExpiredException;
 import net.greghaines.jesque.Job;
 import net.greghaines.jesque.json.ObjectMapperFactory;
 import net.greghaines.jesque.utils.JedisUtils;
@@ -498,7 +499,7 @@ public abstract class AbstractClient implements Client {
     private static void validateArguments(final String queue, final Job job, final long future) {
         validateArguments(queue, job);
         if (System.currentTimeMillis() > future) {
-            throw new IllegalArgumentException("future must be after current time");
+            throw new JobExecutionTimeExpiredException("future must be after current time");
         }
     }
 
