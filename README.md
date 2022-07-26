@@ -24,6 +24,7 @@ Or, to use it in your Maven project, add it as a dependency:
   <groupId>net.greghaines</groupId>
   <artifactId>jesque</artifactId>
   <version>2.1.2</version>
+	
 </dependency>
 ```
 
